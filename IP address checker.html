@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="High-performance batch IP address lookup tool. Check country, city, ISP, ASN, and status for multiple IP addresses simultaneously with instant results and export options.">
+  <title>IP Pulse — Batch IP Geolocation & ISP Inspector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #090d16;
+      --bg-surface: #0f172a;
+      --bg-surface-elevated: #1e293b;
+      --bg-surface-subtle: rgba(255, 255, 255, 0.03);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.5);
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-glow: rgba(99, 102, 241, 0.25);
+      
+      --cyan: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.2);
+
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --success-border: rgba(16, 185, 129, 0.3);
+      --success-text: #34d399;
+
+      --warning-bg: rgba(245, 158, 11, 0.12);
+      --warning-border: rgba(245, 158, 11, 0.3);
+      --warning-text: #fbbf24;
+
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --danger-border: rgba(239, 68, 68, 0.3);
+      --danger-text: #f87171;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-canvas);
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 4rem;
+    }
+
+    /* Layout Container */
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Top Navigation / Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--primary), var(--cyan));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px var(--primary-glow);
+      color: #fff;
+    }
+
+    .brand-text h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(120deg, #ffffff 40%, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-text p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    .status-pill .indicator-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Main Grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 992px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Card Panels */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title svg {
+      color: var(--cyan);
+    }
+
+    .counter-badge {
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 0.15rem 0.5rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface-elevated);
+      color: var(--cyan);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* Textarea & Input Control */
+    .textarea-container {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    textarea#ip-input {
+      width: 100%;
+      height: 240px;
+      background: #090e17;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      transition: all 0.2s;
+      white-space: pre;
+    }
+
+    textarea#ip-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    textarea#ip-input::placeholder {
+      color: var(--text-dim);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    /* Input Action Toolbar */
+    .input-tools {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-secondary-sm {
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      padding: 0.45rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s;
+    }
+
+    .btn-secondary-sm:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Options / Settings */
+    .settings-group {
+      background: var(--bg-surface-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .settings-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .settings-label span.desc {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    select.provider-select {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 0.4rem 0.65rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Primary Action Button */
+    .btn-primary {
+      width: 100%;
+      padding: 0.85rem 1.25rem;
+      background: linear-gradient(135deg, var(--primary) 0%, #4338ca 100%);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      box-shadow: 0 4px 14px var(--primary-glow);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+      filter: brightness(1.1);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      filter: grayscale(0.5);
+    }
+
+    .btn-primary .kbd-hint {
+      font-size: 0.7rem;
+      opacity: 0.75;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Cancel Button */
+    .btn-cancel {
+      width: 100%;
+      margin-top: 0.6rem;
+      padding: 0.6rem 1rem;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      transition: all 0.15s;
+    }
+
+    .btn-cancel:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
+
+    /* Progress & Loading Component */
+    .progress-section {
+      margin-top: 1.25rem;
+      display: none;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .progress-bar-track {
+      height: 8px;
+      background: #090e17;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary), var(--cyan));
+      border-radius: 999px;
+      transition: width 0.25s ease-out;
+      box-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .progress-status-text {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.45rem;
+    }
+
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(6, 182, 212, 0.25);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Stats Overview Deck */
+    .stats-deck {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .stat-card {
+      background: var(--bg-surface-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+    }
+
+    .stat-value.success { color: var(--success-text); }
+    .stat-value.failed { color: var(--danger-text); }
+    .stat-value.private { color: var(--warning-text); }
+    .stat-value.countries { color: var(--cyan); }
+
+    /* Results Header & Controls */
+    .results-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      position: relative;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .search-box input {
+      width: 100%;
+      background: #090e17;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.55rem 0.85rem 0.55rem 2.2rem;
+      color: var(--text-main);
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+
+    .table-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    select.filter-select {
+      background: #090e17;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 0.55rem 0.75rem;
+      border-radius: var(--radius-md);
+      font-size: 0.82rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Table Component */
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: #090e17;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.84rem;
+    }
+
+    thead {
+      background: var(--bg-surface-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    th {
+      padding: 0.75rem 1rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    th.center, td.center {
+      text-align: center;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      transition: background-color 0.15s;
+    }
+
+    tbody tr:hover {
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    td {
+      padding: 0.85rem 1rem;
+      color: var(--text-main);
+      vertical-align: middle;
+    }
+
+    /* Row Content Cells */
+    .ip-cell {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      color: #e2e8f0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .ip-type-tag {
+      font-size: 0.65rem;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 0.2rem;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover {
+      color: var(--cyan);
+      background: rgba(6, 182, 212, 0.1);
+    }
+
+    .country-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-weight: 500;
+    }
+
+    .country-flag {
+      font-size: 1.15rem;
+      line-height: 1;
+    }
+
+    .country-code-pill {
+      font-size: 0.68rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.1rem 0.35rem;
+      border-radius: 3px;
+    }
+
+    .isp-cell {
+      max-width: 240px;
+    }
+
+    .isp-name {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .asn-badge {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-success {
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+
+    .badge-private {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+    }
+
+    .badge-danger {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .badge-pending {
+      background: rgba(148, 163, 184, 0.1);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: var(--text-muted);
+    }
+
+    .badge-datacenter {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fbbf24;
+    }
+
+    .badge-proxy {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+
+    .badge-normal {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    /* Empty State */
+    .empty-state {
+      padding: 4rem 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .empty-state-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--bg-surface-elevated);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+
+    .empty-state h3 {
+      font-size: 1.1rem;
+      color: var(--text-main);
+    }
+
+    .empty-state p {
+      font-size: 0.85rem;
+      max-width: 400px;
+      color: var(--text-muted);
+    }
+
+    /* Alert / Error Banner */
+    .alert-banner {
+      display: none;
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius-md);
+      margin-bottom: 1.25rem;
+      font-size: 0.82rem;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .alert-banner.alert-warning {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+    }
+
+    .alert-banner.alert-danger {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    /* Toast Notification */
+    #toast-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 0.65rem 1.1rem;
+      border-radius: var(--radius-md);
+      font-size: 0.82rem;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: auto;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 3rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    footer a {
+      color: var(--cyan);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>IP Pulse</h1>
+          <p>Batch IP Geolocation &amp; ISP Intelligence Inspector</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <div class="status-pill">
+          <span class="indicator-dot"></span>
+          <span>API Ready</span>
+        </div>
+        <div class="status-pill" id="protocol-badge">
+          <span id="protocol-text">HTTP/Direct</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Alert / Notice Banner -->
+    <div id="alert-banner" class="alert-banner">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span id="alert-message">Notice</span>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <main class="dashboard-grid">
+      
+      <!-- Left Panel: Input & Controls -->
+      <section class="card input-card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="6" y1="8" x2="6.01" y2="8"></line>
+              <line x1="10" y1="8" x2="10.01" y2="8"></line>
+              <line x1="14" y1="8" x2="14.01" y2="8"></line>
+            </svg>
+            IP Address List
+          </h2>
+          <span class="counter-badge" id="ip-counter">0 IPs</span>
+        </div>
+
+        <div class="textarea-container">
+          <textarea
+            id="ip-input"
+            placeholder="Paste IP addresses here (one per line), or click 'Upload Raw File' to load a raw journal/log export...&#10;&#10;Plain IP examples:&#10;8.8.8.8&#10;1.1.1.1&#10;9.9.9.9&#10;2606:4700:4700::1111&#10;&#10;Raw journal format (auto-detected):&#10;2026.09.11 08:16:24.478;172.31.8.121;'101': changed balance ..."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <!-- Tool bar -->
+        <div class="input-tools">
+          <button type="button" class="btn-secondary-sm" id="btn-upload">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Upload Raw File
+          </button>
+          <input type="file" id="file-input" accept=".csv,.txt,.log" style="display:none">
+          <button type="button" class="btn-secondary-sm" id="btn-sample">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Load Sample IPs
+          </button>
+          <button type="button" class="btn-secondary-sm" id="btn-dedupe">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Clean &amp; Dedupe
+          </button>
+          <button type="button" class="btn-secondary-sm" id="btn-clear">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            Clear
+          </button>
+        </div>
+
+        <!-- Settings Group -->
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="settings-label">
+              <strong>API Source</strong>
+              <span class="desc">Engine &amp; fallback provider</span>
+            </div>
+            <select id="api-provider" class="provider-select">
+              <option value="auto">Auto (ip-api + HTTPS fallback)</option>
+              <option value="ip-api">ip-api.com (Batch HTTP)</option>
+              <option value="ipwhois">ipwho.is (Native HTTPS)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Primary Action Button -->
+        <button type="button" class="btn-primary" id="btn-check">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>Check IPs</span>
+          <span class="kbd-hint">Ctrl + Enter</span>
+        </button>
+
+        <button type="button" class="btn-cancel" id="btn-cancel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          <span>Cancel Execution</span>
+        </button>
+
+        <!-- Progress Indicator -->
+        <div class="progress-section" id="progress-section">
+          <div class="progress-header">
+            <span id="progress-count">Checking 0 of 0...</span>
+            <span id="progress-percent">0%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progress-bar-fill"></div>
+          </div>
+          <div class="progress-status-text">
+            <div class="spinner"></div>
+            <span id="progress-detail">Dispatching asynchronous batch requests...</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Panel: Overview Stats & Results Table -->
+      <section class="card results-card">
+        
+        <!-- Summary Stats Cards -->
+        <div class="stats-deck">
+          <div class="stat-card">
+            <span class="stat-label">Total Checked</span>
+            <span class="stat-value" id="stat-total">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Successful</span>
+            <span class="stat-value success" id="stat-success">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Private / Local</span>
+            <span class="stat-value private" id="stat-private">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Failed / Error</span>
+            <span class="stat-value failed" id="stat-failed">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Countries</span>
+            <span class="stat-value countries" id="stat-countries">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Other / Non-IP</span>
+            <span class="stat-value" id="stat-other">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Data Center / Proxy</span>
+            <span class="stat-value failed" id="stat-datacenter">0</span>
+          </div>
+        </div>
+
+        <!-- Table Controls Toolbar -->
+        <div class="results-toolbar">
+          <div class="search-box">
+            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="filter-query" placeholder="Filter by IP, Country, City, or ISP...">
+          </div>
+
+          <div class="table-actions">
+            <select id="filter-status" class="filter-select">
+              <option value="all">All Statuses</option>
+              <option value="success">Success Only</option>
+              <option value="private">Private Only</option>
+              <option value="other">Other / Non-IP Only</option>
+              <option value="failed">Failed Only</option>
+            </select>
+
+            <button type="button" class="btn-secondary-sm" id="btn-export-csv" title="Export current results as CSV">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              CSV
+            </button>
+
+            <button type="button" class="btn-secondary-sm" id="btn-export-json" title="Export current results as JSON">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+              JSON
+            </button>
+          </div>
+        </div>
+
+        <!-- Responsive Table Wrapper -->
+        <div class="table-wrapper">
+          <table id="results-table">
+            <thead>
+              <tr id="results-header-row">
+                <th class="center" style="width: 40px;">#</th>
+                <th id="th-time" style="min-width: 150px; display: none;">First Seen</th>
+                <th style="min-width: 150px;">IP Address</th>
+                <th id="th-occurrences" class="center" style="width: 90px; display: none;">Occurrences</th>
+                <th id="th-message" style="min-width: 220px; display: none;">Message (first seen)</th>
+                <th style="min-width: 160px;">Country</th>
+                <th style="min-width: 140px;">City / Region</th>
+                <th style="min-width: 180px;">ISP &amp; ASN</th>
+                <th style="min-width: 150px;">IP Type</th>
+                <th class="center" style="width: 110px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="results-body">
+              <!-- Dynamically populated or empty state -->
+            </tbody>
+          </table>
+
+          <div id="empty-state" class="empty-state">
+            <div class="empty-state-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+            </div>
+            <h3>No IP Lookups Yet</h3>
+            <p>Paste a list of IP addresses, or upload a raw journal/log file, into the input panel and click "Check IPs" to retrieve real-time geolocation and ISP telemetry.</p>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <footer>
+      <p>IP Pulse &bull; Powered by free geolocation telemetry &bull; Single-File Architecture</p>
+    </footer>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script>
+    (function () {
+      'use strict';
+
+      // --- State ---
+      let allResults = [];
+      let isChecking = false;
+      let abortController = null;
+
+      // Sample IPs showcasing global diversity, IPv4, IPv6, private IPs, and malformed inputs
+      const SAMPLE_IPS = [
+        "8.8.8.8",                  // Google Public DNS (US)
+        "1.1.1.1",                  // Cloudflare DNS (AU)
+        "9.9.9.9",                  // Quad9 DNS (US/Global)
+        "185.199.108.153",          // GitHub Fastly CDN (EU/US)
+        "208.67.222.222",          // Cisco OpenDNS (US)
+        "77.88.8.8",                // Yandex DNS (RU)
+        "114.114.114.114",          // 114DNS (CN)
+        "2606:4700:4700::1111",      // Cloudflare IPv6
+        "192.168.1.1",              // RFC 1918 Private range
+        "10.0.0.1",                 // RFC 1918 Private range
+        "127.0.0.1"                 // Loopback localhost
+      ];
+
+      // --- DOM Elements ---
+      const ipInput = document.getElementById('ip-input');
+      const ipCounter = document.getElementById('ip-counter');
+      const btnCheck = document.getElementById('btn-check');
+      const btnCancel = document.getElementById('btn-cancel');
+      const btnUpload = document.getElementById('btn-upload');
+      const fileInput = document.getElementById('file-input');
+      const btnSample = document.getElementById('btn-sample');
+      const btnDedupe = document.getElementById('btn-dedupe');
+      const btnClear = document.getElementById('btn-clear');
+      const apiProviderSelect = document.getElementById('api-provider');
+      const thTime = document.getElementById('th-time');
+      const thMessage = document.getElementById('th-message');
+      const thOccurrences = document.getElementById('th-occurrences');
+      const statOther = document.getElementById('stat-other');
+      const statDatacenter = document.getElementById('stat-datacenter');
+
+      // True when the loaded input looks like a raw journal/log export (Time;IP;Message)
+      // rather than a plain list of IP addresses.
+      let journalMode = false;
+
+      const progressSection = document.getElementById('progress-section');
+      const progressBarFill = document.getElementById('progress-bar-fill');
+      const progressCount = document.getElementById('progress-count');
+      const progressPercent = document.getElementById('progress-percent');
+      const progressDetail = document.getElementById('progress-detail');
+
+      const statTotal = document.getElementById('stat-total');
+      const statSuccess = document.getElementById('stat-success');
+      const statPrivate = document.getElementById('stat-private');
+      const statFailed = document.getElementById('stat-failed');
+      const statCountries = document.getElementById('stat-countries');
+
+      const resultsBody = document.getElementById('results-body');
+      const emptyState = document.getElementById('empty-state');
+      const filterQuery = document.getElementById('filter-query');
+      const filterStatus = document.getElementById('filter-status');
+      const btnExportCsv = document.getElementById('btn-export-csv');
+      const btnExportJson = document.getElementById('btn-export-json');
+      const alertBanner = document.getElementById('alert-banner');
+      const alertMessage = document.getElementById('alert-message');
+      const protocolBadge = document.getElementById('protocol-badge');
+      const protocolText = document.getElementById('protocol-text');
+      const toastContainer = document.getElementById('toast-container');
+
+      // --- Helper: Protocol & Mixed-Content Detection ---
+      const isHttps = window.location.protocol === 'https:';
+      if (isHttps) {
+        protocolText.textContent = 'HTTPS Active';
+        protocolBadge.title = 'Page is running under HTTPS. HTTPS-safe endpoints or auto-fallback will be utilized.';
+      } else {
+        protocolText.textContent = 'HTTP / Local';
+        protocolBadge.title = 'Running over HTTP or file://. Direct high-speed batch requests supported.';
+      }
+
+      // --- Helper: IP Validation & Private Check ---
+      const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+      const IPV6_REGEX = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+
+      function isPrivateIP(ip) {
+        if (!ip) return false;
+        // IPv4 private & reserved ranges
+        if (IPV4_REGEX.test(ip)) {
+          const parts = ip.split('.').map(Number);
+          if (parts[0] === 10) return true;
+          if (parts[0] === 127) return true; // Loopback
+          if (parts[0] === 169 && parts[1] === 254) return true; // Link-local
+          if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+          if (parts[0] === 192 && parts[1] === 168) return true;
+          if (parts[0] === 0) return true; // 0.0.0.0/8
+          return false;
+        }
+        // IPv6 loopback / local
+        if (ip === '::1' || ip.toLowerCase().startsWith('fc') || ip.toLowerCase().startsWith('fd') || ip.toLowerCase().startsWith('fe80')) {
+          return true;
+        }
+        return false;
+      }
+
+      function getIpType(ip) {
+        if (IPV4_REGEX.test(ip)) return 'IPv4';
+        if (IPV6_REGEX.test(ip)) return 'IPv6';
+        return 'Unknown';
+      }
+
+      // Classifies the *network* type (residential/mobile ISP vs. data center vs. proxy/VPN)
+      // based on ip-api.com's mobile/proxy/hosting flags — useful for spotting clients
+      // connecting from a VPS/hosting provider or a VPN/proxy instead of a normal ISP.
+      function classifyNetworkType(mobile, proxy, hosting) {
+        if (mobile === undefined || mobile === null) return null; // unknown (fallback provider)
+        const tags = [];
+        if (proxy) tags.push('Proxy / VPN');
+        if (hosting) tags.push('Data Center / Hosting');
+        if (mobile) tags.push('Mobile Carrier');
+        return tags.length ? tags.join(' + ') : 'Residential / Business ISP';
+      }
+
+      // Converts 2-character ISO country code (e.g., 'US') to regional indicator flag emoji
+      function getCountryFlag(countryCode) {
+        if (!countryCode || countryCode.length !== 2) return '🌐';
+        try {
+          const codePoints = [...countryCode.toUpperCase()].map(char => 127397 + char.charCodeAt(0));
+          return String.fromCodePoint(...codePoints);
+        } catch (e) {
+          return '🌐';
+        }
+      }
+
+      // --- Toast Messages ---
+      function showToast(message, icon = '✓') {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = `<span>${icon}</span><span>${escapeHtml(message)}</span>`;
+        toastContainer.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(8px)';
+          setTimeout(() => toast.remove(), 250);
+        }, 2500);
+      }
+
+      function showAlert(message, type = 'warning') {
+        alertMessage.textContent = message;
+        alertBanner.className = `alert-banner alert-${type}`;
+        alertBanner.style.display = 'flex';
+      }
+
+      function hideAlert() {
+        alertBanner.style.display = 'none';
+      }
+
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      // --- Parse & Clean Input ---
+      // Detects whether the raw text looks like a journal/log export (lines containing
+      // "Time;IP;Message"-style records) or a plain list of bare IP addresses, and
+      // normalizes either shape into a common list of {time, ip, message} entries.
+      function parseEntriesFromInput() {
+        const raw = ipInput.value;
+        if (!raw.trim()) return [];
+
+        const rawLines = raw.split(/\r\n|\r|\n/).map(l => l.trim()).filter(l => l.length > 0);
+        const looksLikeJournal = rawLines.some(l => l.includes(';'));
+
+        const entries = [];
+        for (let line of rawLines) {
+          if (looksLikeJournal) {
+            if (!line.includes(';')) {
+              // A stray non-delimited line among journal rows is almost always a
+              // report title/banner line, not a data row (e.g. "Journal Report from ...").
+              if (!IPV4_REGEX.test(line) && !IPV6_REGEX.test(line)) continue;
+              entries.push({ time: '', ip: line, message: '' });
+              continue;
+            }
+            const parts = line.split(';');
+            // Skip the "Time;IP;Message" header row itself.
+            if (parts.length >= 2 && parts[0].trim().toLowerCase() === 'time' && parts[1].trim().toLowerCase() === 'ip') {
+              continue;
+            }
+            if (parts.length >= 3) {
+              const msg = parts.slice(2).join(';').trim();
+              // Skip trailing log-rotation footer lines, e.g. "2026.09.10;(853689 kb);---------------"
+              if (/^-+$/.test(msg)) continue;
+              entries.push({ time: parts[0].trim(), ip: parts[1].trim(), message: msg });
+            } else if (parts.length === 2) {
+              entries.push({ time: '', ip: parts[0].trim(), message: parts[1].trim() });
+            } else {
+              entries.push({ time: '', ip: parts[0].trim(), message: '' });
+            }
+          } else {
+            // Plain IP list mode: also allow comma-separated IPs on one line.
+            for (let piece of line.split(',')) {
+              piece = piece.trim();
+              if (piece) entries.push({ time: '', ip: piece, message: '' });
+            }
+          }
+        }
+
+        journalMode = looksLikeJournal;
+        return entries;
+      }
+
+      function updateCounter() {
+        const entries = parseEntriesFromInput();
+        const label = journalMode ? 'entries' : (entries.length === 1 ? 'IP' : 'IPs');
+        ipCounter.textContent = `${entries.length} ${label}`;
+      }
+
+      // Collapses repeated journal lines down to one row per unique IP value,
+      // keeping the first-seen time/message and a running occurrence count.
+      function dedupeEntriesByIp(entries) {
+        const groups = new Map();
+        const order = [];
+        for (const entry of entries) {
+          const key = entry.ip;
+          if (!groups.has(key)) {
+            groups.set(key, {
+              time: entry.time,
+              ip: entry.ip,
+              message: entry.message,
+              occurrences: 1,
+              distinctMessages: new Set(entry.message ? [entry.message] : [])
+            });
+            order.push(key);
+          } else {
+            const g = groups.get(key);
+            g.occurrences++;
+            if (entry.message) g.distinctMessages.add(entry.message);
+          }
+        }
+        return order.map(key => {
+          const g = groups.get(key);
+          return {
+            time: g.time,
+            ip: g.ip,
+            message: g.distinctMessages.size > 1
+              ? `${g.message}  (+${g.distinctMessages.size - 1} more distinct message${g.distinctMessages.size - 1 === 1 ? '' : 's'})`
+              : g.message,
+            occurrences: g.occurrences
+          };
+        });
+      }
+
+      ipInput.addEventListener('input', updateCounter);
+
+      // File Upload Tool
+      btnUpload.addEventListener('click', () => fileInput.click());
+
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          ipInput.value = e.target.result;
+          updateCounter();
+          showToast(`Loaded "${file.name}" — click "Check IPs" to extract results`, '📄');
+        };
+        reader.onerror = () => {
+          showToast(`Failed to read "${file.name}"`, '⚠️');
+        };
+        reader.readAsText(file);
+        fileInput.value = '';
+      });
+
+      // Clean & Deduplicate Tool
+      btnDedupe.addEventListener('click', () => {
+        const entries = parseEntriesFromInput();
+        if (entries.length === 0) {
+          showToast('Input is empty', 'ℹ');
+          return;
+        }
+
+        if (journalMode) {
+          // Dedupe exact duplicate journal lines (same time+ip+message).
+          const cleaned = [];
+          const seen = new Set();
+          for (const entry of entries) {
+            const key = `${entry.time}|${entry.ip}|${entry.message}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              cleaned.push(`${entry.time};${entry.ip};${entry.message}`);
+            }
+          }
+          ipInput.value = cleaned.join('\n');
+          updateCounter();
+          showToast(`Cleaned: ${cleaned.length} unique journal line(s) ready`, '✓');
+          return;
+        }
+
+        const cleaned = [];
+        const seen = new Set();
+
+        for (let entry of entries) {
+          // Strip protocol if user pasted URLs
+          let cleanedIp = entry.ip.replace(/^(https?:\/\/)/i, '').replace(/:\d+$/, '').trim();
+          // Remove bracket wrappers e.g. [::1]
+          cleanedIp = cleanedIp.replace(/^\[|\]$/g, '');
+
+          if (cleanedIp && !seen.has(cleanedIp.toLowerCase())) {
+            seen.add(cleanedIp.toLowerCase());
+            cleaned.push(cleanedIp);
+          }
+        }
+
+        ipInput.value = cleaned.join('\n');
+        updateCounter();
+        showToast(`Cleaned: ${cleaned.length} unique IP(s) ready`, '✓');
+      });
+
+      // Clear Tool
+      btnClear.addEventListener('click', () => {
+        ipInput.value = '';
+        journalMode = false;
+        updateCounter();
+        ipInput.focus();
+      });
+
+      // Load Sample IPs
+      btnSample.addEventListener('click', () => {
+        ipInput.value = SAMPLE_IPS.join('\n');
+        updateCounter();
+        showToast('Sample IP addresses loaded', '✓');
+      });
+
+      // Keyboard Shortcut (Ctrl+Enter / Cmd+Enter)
+      ipInput.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          if (!isChecking) {
+            startBatchCheck();
+          }
+        }
+      });
+
+      btnCheck.addEventListener('click', () => {
+        if (!isChecking) {
+          startBatchCheck();
+        }
+      });
+
+      btnCancel.addEventListener('click', () => {
+        if (abortController) {
+          abortController.abort();
+          showToast('Batch check cancelled by user', '✕');
+          finalizeProgress(false, 'Cancelled by user');
+        }
+      });
+
+      // --- Asynchronous Batch Check Engine ---
+      async function startBatchCheck() {
+        let entries = parseEntriesFromInput();
+        if (entries.length === 0) {
+          showToast('Please enter at least one IP address, or upload a raw file, to inspect', '⚠️');
+          ipInput.focus();
+          return;
+        }
+
+        const rawEntryCount = entries.length;
+        if (journalMode) {
+          entries = dedupeEntriesByIp(entries);
+        }
+
+        hideAlert();
+        isChecking = true;
+        abortController = new AbortController();
+        const signal = abortController.signal;
+
+        btnCheck.disabled = true;
+        btnCancel.style.display = 'inline-flex';
+        progressSection.style.display = 'block';
+        updateProgress(0, entries.length, 'Initializing lookup queue...');
+
+        // Show/hide the Time, Occurrences & Message columns depending on input shape
+        thTime.style.display = journalMode ? '' : 'none';
+        thOccurrences.style.display = journalMode ? '' : 'none';
+        thMessage.style.display = journalMode ? '' : 'none';
+
+        if (journalMode && rawEntryCount !== entries.length) {
+          showToast(`Deduplicated ${rawEntryCount} journal lines down to ${entries.length} unique IP(s)`, '✓');
+        }
+
+        // Initialize state for this run. Each entry is classified as:
+        //  - "other"   : blank or non-IP-shaped value (e.g. a source name, or a log footer line)
+        //  - "private" : RFC1918 / loopback / link-local address, resolved instantly
+        //  - "pending" : a real public IP that needs a remote geolocation lookup
+        allResults = entries.map(entry => {
+          const ip = entry.ip;
+          const type = ip ? getIpType(ip) : '—';
+          const isValidIp = ip !== '' && type !== 'Unknown';
+          const priv = isValidIp && isPrivateIP(ip);
+
+          let status = 'pending';
+          let country = null, countryCode = null, city = null, region = null, isp = null, org = null, as = null, errorMsg = null;
+          let networkType = null;
+
+          if (!isValidIp) {
+            status = 'other';
+            errorMsg = ip ? 'Not a valid IP address' : 'No IP recorded';
+            isp = ip ? `${ip} (Non-IP source)` : null;
+            networkType = 'N/A';
+          } else if (priv) {
+            status = 'private';
+            country = 'Private Network';
+            countryCode = 'LAN';
+            city = 'Local Subnet';
+            isp = 'Internal Routing';
+            org = 'RFC 1918 / Bogon';
+            errorMsg = 'Private / Reserved IP';
+            networkType = 'Private / Internal';
+          }
+
+          return {
+            time: entry.time,
+            ip: ip,
+            message: entry.message,
+            occurrences: entry.occurrences || 1,
+            type: type,
+            isPrivate: priv,
+            country, countryCode, city, region, isp, org, as,
+            mobile: null, proxy: null, hosting: null, networkType,
+            status,
+            errorMsg
+          };
+        });
+
+        renderResults();
+        updateStats();
+
+        const selectedProvider = apiProviderSelect.value;
+        const total = entries.length;
+        let completedCount = 0;
+
+        try {
+          // Identify IPs that actually need remote geolocation lookup
+          const queries = [];
+          for (let i = 0; i < allResults.length; i++) {
+            if (allResults[i].status !== 'pending') {
+              completedCount++;
+            } else {
+              queries.push({ index: i, ip: allResults[i].ip });
+            }
+          }
+
+          updateProgress(completedCount, total, `Resolved ${completedCount} local addresses immediately.`);
+
+          if (queries.length > 0) {
+            // Determine execution strategy based on environment and user preference
+            let useIpApiBatch = false;
+
+            if (selectedProvider === 'ip-api') {
+              useIpApiBatch = true;
+            } else if (selectedProvider === 'ipwhois') {
+              useIpApiBatch = false;
+            } else {
+              // 'auto' mode: If HTTPS, ip-api.com will trigger mixed content block unless fallback is used
+              useIpApiBatch = !isHttps;
+            }
+
+            if (useIpApiBatch) {
+              try {
+                await processWithIpApiBatch(queries, signal, (processed) => {
+                  completedCount += processed;
+                  updateProgress(completedCount, total, `Processed ${completedCount} of ${total} IPs...`);
+                  renderResults();
+                  updateStats();
+                });
+              } catch (err) {
+                if (signal.aborted) throw err;
+                console.warn('ip-api.com batch failed, attempting fallback to HTTPS provider:', err);
+                showAlert('Direct HTTP batch restricted. Seamlessly switching to HTTPS fallback engine...', 'warning');
+                // Fallback remaining to ipwho.is
+                const remainingQueries = queries.filter(q => allResults[q.index].status === 'pending');
+                await processWithIpWhois(remainingQueries, signal, (processed) => {
+                  completedCount += processed;
+                  updateProgress(completedCount, total, `Processing via fallback: ${completedCount} of ${total}...`);
+                  renderResults();
+                  updateStats();
+                });
+              }
+            } else {
+              // HTTPS native mode using ipwho.is
+              await processWithIpWhois(queries, signal, (processed) => {
+                completedCount += processed;
+                updateProgress(completedCount, total, `Lookups active: ${completedCount} of ${total}...`);
+                renderResults();
+                updateStats();
+              });
+            }
+          }
+
+          finalizeProgress(true, 'All lookups completed successfully.');
+          showToast(`Finished inspection of ${total} IP(s)`, '✓');
+
+        } catch (error) {
+          if (signal.aborted) {
+            finalizeProgress(false, 'Check cancelled by user.');
+          } else {
+            console.error('Batch check error:', error);
+            showAlert(`Batch processing error: ${error.message || error}`, 'danger');
+            finalizeProgress(false, 'Encountered an error during execution.');
+          }
+        } finally {
+          isChecking = false;
+          btnCheck.disabled = false;
+          btnCancel.style.display = 'none';
+        }
+      }
+
+      // --- Provider 1: ip-api.com Batch POST Endpoint ---
+      async function processWithIpApiBatch(queries, signal, onChunkDone) {
+        // ip-api.com batch endpoint accepts up to 100 IPs per request
+        const CHUNK_SIZE = 100;
+        for (let i = 0; i < queries.length; i += CHUNK_SIZE) {
+          if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
+          const chunk = queries.slice(i, i + CHUNK_SIZE);
+          const payload = chunk.map(item => ({
+            query: item.ip,
+            fields: 'status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting,query'
+          }));
+
+          const response = await fetch('http://ip-api.com/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal
+          });
+
+          if (!response.ok) {
+            throw new Error(`ip-api.com responded with HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          for (let j = 0; j < chunk.length; j++) {
+            const queryItem = chunk[j];
+            const resData = data[j];
+            const target = allResults[queryItem.index];
+
+            if (resData && resData.status === 'success') {
+              target.country = resData.country || 'Unknown';
+              target.countryCode = resData.countryCode || '';
+              target.city = resData.city || 'Unknown';
+              target.region = resData.regionName || resData.region || '';
+              target.isp = resData.isp || resData.org || 'Unknown';
+              target.org = resData.org || '';
+              target.as = resData.as || '';
+              target.mobile = !!resData.mobile;
+              target.proxy = !!resData.proxy;
+              target.hosting = !!resData.hosting;
+              target.networkType = classifyNetworkType(resData.mobile, resData.proxy, resData.hosting);
+              target.status = 'success';
+            } else {
+              target.status = 'failed';
+              target.errorMsg = (resData && resData.message) || 'Lookup failed';
+            }
+          }
+
+          onChunkDone(chunk.length);
+
+          // Respect free tier rate pacing (ip-api: 45 req/min, batch chunk is 1 req per 100 IPs)
+          if (i + CHUNK_SIZE < queries.length) {
+            await new Promise(r => setTimeout(r, 400));
+          }
+        }
+      }
+
+      // --- Provider 2: ipwho.is HTTPS Endpoint (Individual / Throttled Concurrency) ---
+      async function processWithIpWhois(queries, signal, onProgress) {
+        const CONCURRENCY = 4;
+        let index = 0;
+
+        async function worker() {
+          while (index < queries.length) {
+            if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+            const currentItem = queries[index++];
+            const target = allResults[currentItem.index];
+
+            try {
+              const res = await fetch(`https://ipwho.is/${encodeURIComponent(currentItem.ip)}`, { signal });
+              if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+              }
+              const data = await res.json();
+
+              if (data && data.success) {
+                target.country = data.country || 'Unknown';
+                target.countryCode = data.country_code || '';
+                target.city = data.city || 'Unknown';
+                target.region = data.region || '';
+                target.isp = (data.connection && data.connection.isp) || 'Unknown';
+                target.org = (data.connection && data.connection.org) || '';
+                target.as = (data.connection && data.connection.asn) ? `AS${data.connection.asn}` : '';
+                target.networkType = 'Unknown (fallback provider)';
+                target.status = 'success';
+              } else {
+                target.status = 'failed';
+                target.errorMsg = (data && data.message) || 'Failed lookup';
+              }
+            } catch (err) {
+              if (signal.aborted) throw err;
+              target.status = 'failed';
+              target.errorMsg = err.message || 'Network error';
+            }
+
+            onProgress(1);
+            // Brief pause between requests to respect rate limits
+            await new Promise(r => setTimeout(r, 80));
+          }
+        }
+
+        const workers = [];
+        const poolSize = Math.min(CONCURRENCY, queries.length);
+        for (let i = 0; i < poolSize; i++) {
+          workers.push(worker());
+        }
+        await Promise.all(workers);
+      }
+
+      // --- UI Progress Helpers ---
+      function updateProgress(done, total, detailText) {
+        const pct = total === 0 ? 0 : Math.min(100, Math.round((done / total) * 100));
+        progressBarFill.style.width = `${pct}%`;
+        progressCount.textContent = `Checking ${done} of ${total}...`;
+        progressPercent.textContent = `${pct}%`;
+        if (detailText) progressDetail.textContent = detailText;
+      }
+
+      function finalizeProgress(success, message) {
+        progressBarFill.style.width = '100%';
+        progressPercent.textContent = '100%';
+        progressDetail.textContent = message;
+        setTimeout(() => {
+          if (!isChecking) {
+            progressSection.style.display = 'none';
+          }
+        }, 2200);
+      }
+
+      // --- Stats Aggregator ---
+      function updateStats() {
+        const total = allResults.length;
+        let success = 0;
+        let privateCount = 0;
+        let failed = 0;
+        let other = 0;
+        let datacenterOrProxy = 0;
+        const countries = new Set();
+
+        for (const item of allResults) {
+          if (item.status === 'success') {
+            success++;
+            if (item.country && item.country !== 'Unknown') {
+              countries.add(item.country);
+            }
+          } else if (item.status === 'private') {
+            privateCount++;
+          } else if (item.status === 'failed') {
+            failed++;
+          } else if (item.status === 'other') {
+            other++;
+          }
+          if (item.networkType && (item.networkType.includes('Data Center') || item.networkType.includes('Proxy'))) {
+            datacenterOrProxy++;
+          }
+        }
+
+        statTotal.textContent = total;
+        statSuccess.textContent = success;
+        statPrivate.textContent = privateCount;
+        statFailed.textContent = failed;
+        statCountries.textContent = countries.size;
+        statOther.textContent = other;
+        statDatacenter.textContent = datacenterOrProxy;
+      }
+
+      // --- Results Filtering & Table Rendering ---
+      filterQuery.addEventListener('input', renderResults);
+      filterStatus.addEventListener('change', renderResults);
+
+      function renderResults() {
+        if (allResults.length === 0) {
+          resultsBody.innerHTML = '';
+          emptyState.style.display = 'flex';
+          return;
+        }
+
+        emptyState.style.display = 'none';
+
+        const query = filterQuery.value.trim().toLowerCase();
+        const statusFilter = filterStatus.value;
+
+        const filtered = allResults.filter(item => {
+          // Status filter
+          if (statusFilter !== 'all' && item.status !== statusFilter) {
+            return false;
+          }
+          // Search query filter
+          if (query) {
+            const ipMatch = (item.ip || '').toLowerCase().includes(query);
+            const countryMatch = (item.country || '').toLowerCase().includes(query);
+            const cityMatch = (item.city || '').toLowerCase().includes(query);
+            const ispMatch = (item.isp || '').toLowerCase().includes(query);
+            const asMatch = (item.as || '').toLowerCase().includes(query);
+            const messageMatch = (item.message || '').toLowerCase().includes(query);
+            const timeMatch = (item.time || '').toLowerCase().includes(query);
+            const typeMatch = (item.networkType || '').toLowerCase().includes(query);
+            return ipMatch || countryMatch || cityMatch || ispMatch || asMatch || messageMatch || timeMatch || typeMatch;
+          }
+          return true;
+        });
+
+        const colCount = journalMode ? 10 : 7;
+
+        if (filtered.length === 0) {
+          resultsBody.innerHTML = `
+            <tr>
+              <td colspan="${colCount}" style="text-align: center; padding: 2.5rem; color: var(--text-dim);">
+                No matching results found for "${escapeHtml(filterQuery.value)}".
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        const fragment = document.createDocumentFragment();
+
+        filtered.forEach((item, index) => {
+          const tr = document.createElement('tr');
+
+          // Status Badge configuration
+          let statusBadgeHtml = '';
+          if (item.status === 'success') {
+            statusBadgeHtml = `<span class="badge badge-success"><span style="color:#10b981;">●</span> Success</span>`;
+          } else if (item.status === 'private') {
+            statusBadgeHtml = `<span class="badge badge-private" title="Private / Bogon Address"><span style="color:#f59e0b;">●</span> Private</span>`;
+          } else if (item.status === 'failed') {
+            statusBadgeHtml = `<span class="badge badge-danger" title="${escapeHtml(item.errorMsg || 'Error')}"><span style="color:#ef4444;">●</span> Failed</span>`;
+          } else if (item.status === 'other') {
+            statusBadgeHtml = `<span class="badge badge-pending" title="${escapeHtml(item.errorMsg || 'Not an IP')}">Non-IP</span>`;
+          } else {
+            statusBadgeHtml = `<span class="badge badge-pending">Queued</span>`;
+          }
+
+          // Time & Message (journal mode only)
+          const timeHtml = item.time ? escapeHtml(item.time) : '-';
+          const messageHtml = item.message
+            ? `<span title="${escapeHtml(item.message)}">${escapeHtml(item.message)}</span>`
+            : '-';
+
+          // Country & Flag
+          let countryHtml = '-';
+          if (item.country) {
+            const flag = getCountryFlag(item.countryCode);
+            countryHtml = `
+              <div class="country-cell">
+                <span class="country-flag">${flag}</span>
+                <span>${escapeHtml(item.country)}</span>
+                ${item.countryCode ? `<span class="country-code-pill">${escapeHtml(item.countryCode)}</span>` : ''}
+              </div>
+            `;
+          }
+
+          // City / Region
+          let locationHtml = '-';
+          if (item.city) {
+            const regionPart = item.region ? `, ${escapeHtml(item.region)}` : '';
+            locationHtml = `<span>${escapeHtml(item.city)}${regionPart}</span>`;
+          }
+
+          // ISP & ASN
+          let ispHtml = '-';
+          if (item.isp) {
+            ispHtml = `
+              <div class="isp-cell">
+                <div class="isp-name" title="${escapeHtml(item.isp)}">${escapeHtml(item.isp)}</div>
+                ${item.as ? `<span class="asn-badge" title="${escapeHtml(item.as)}">${escapeHtml(item.as)}</span>` : ''}
+              </div>
+            `;
+          }
+
+          // IP Type (residential/mobile ISP vs. data center vs. proxy/VPN)
+          let ipTypeHtml = '-';
+          if (item.networkType) {
+            let cls = 'badge-pending';
+            if (item.networkType.includes('Proxy')) cls = 'badge-proxy';
+            else if (item.networkType.includes('Data Center')) cls = 'badge-datacenter';
+            else if (item.networkType.includes('Residential') || item.networkType.includes('Mobile')) cls = 'badge-normal';
+            ipTypeHtml = `<span class="badge ${cls}" title="${escapeHtml(item.networkType)}">${escapeHtml(item.networkType)}</span>`;
+          }
+
+          tr.innerHTML = `
+            <td class="center" style="color: var(--text-dim);">${index + 1}</td>
+            ${journalMode ? `<td style="white-space: nowrap;">${timeHtml}</td>` : ''}
+            <td>
+              <div class="ip-cell">
+                <span>${item.ip ? escapeHtml(item.ip) : '-'}</span>
+                ${item.ip ? `<span class="ip-type-tag">${item.type}</span>` : ''}
+                ${item.ip ? `<button type="button" class="copy-btn" title="Copy IP to clipboard" data-copy="${escapeHtml(item.ip)}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>` : ''}
+              </div>
+            </td>
+            ${journalMode ? `<td class="center">${item.occurrences || 1}</td>` : ''}
+            ${journalMode ? `<td style="max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${messageHtml}</td>` : ''}
+            <td>${countryHtml}</td>
+            <td>${locationHtml}</td>
+            <td>${ispHtml}</td>
+            <td>${ipTypeHtml}</td>
+            <td class="center">${statusBadgeHtml}</td>
+          `;
+
+          fragment.appendChild(tr);
+        });
+
+        resultsBody.innerHTML = '';
+        resultsBody.appendChild(fragment);
+
+        // Attach click handlers to inline copy buttons
+        resultsBody.querySelectorAll('.copy-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const text = btn.getAttribute('data-copy');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text);
+              showToast(`Copied ${text}`, '📋');
+            } else {
+              const el = document.createElement('textarea');
+              el.value = text;
+              document.body.appendChild(el);
+              el.select();
+              document.execCommand('copy');
+              document.body.removeChild(el);
+              showToast(`Copied ${text}`, '📋');
+            }
+          });
+        });
+      }
+
+      // --- Export to CSV ---
+      btnExportCsv.addEventListener('click', () => {
+        if (allResults.length === 0) {
+          showToast('No results available to export', '⚠️');
+          return;
+        }
+
+        const headers = journalMode
+          ? ['Time_First_Seen', 'IP', 'Occurrences', 'Message', 'Country', 'Country_Code', 'City', 'Region', 'ISP', 'ASN', 'IP_Type', 'Status', 'Error']
+          : ['IP', 'Type', 'Status', 'Country', 'Country_Code', 'City', 'Region', 'ISP', 'ASN', 'IP_Type', 'Error'];
+        const rows = allResults.map(item => journalMode ? [
+          item.time,
+          item.ip,
+          item.occurrences || 1,
+          item.message,
+          item.country || '',
+          item.countryCode || '',
+          item.city || '',
+          item.region || '',
+          item.isp || '',
+          item.as || '',
+          item.networkType || '',
+          item.status,
+          item.errorMsg || ''
+        ] : [
+          item.ip,
+          item.type,
+          item.status,
+          item.country || '',
+          item.countryCode || '',
+          item.city || '',
+          item.region || '',
+          item.isp || '',
+          item.as || '',
+          item.networkType || '',
+          item.errorMsg || ''
+        ]);
+
+        const csvContent = [
+          headers.join(','),
+          ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+        ].join('\r\n');
+
+        downloadBlob(csvContent, 'text/csv;charset=utf-8;', `ip-pulse-export-${Date.now()}.csv`);
+        showToast(`Exported ${allResults.length} records to CSV`, '✓');
+      });
+
+      // --- Export to JSON ---
+      btnExportJson.addEventListener('click', () => {
+        if (allResults.length === 0) {
+          showToast('No results available to export', '⚠️');
+          return;
+        }
+
+        const jsonContent = JSON.stringify(allResults, null, 2);
+        downloadBlob(jsonContent, 'application/json;charset=utf-8;', `ip-pulse-export-${Date.now()}.json`);
+        showToast(`Exported ${allResults.length} records to JSON`, '✓');
+      });
+
+      function downloadBlob(content, mimeType, filename) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+    })();
+  </script>
+</body>
+</html>

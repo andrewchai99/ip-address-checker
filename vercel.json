@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/IP%20address%20checker.html" }
+  ]
+}
