@@ -949,9 +949,9 @@
               <span class="desc">Engine &amp; fallback provider</span>
             </div>
             <select id="api-provider" class="provider-select">
-              <option value="auto">Auto (ip-api + HTTPS fallback)</option>
-              <option value="ip-api">ip-api.com (Batch HTTP)</option>
-              <option value="ipwhois">ipwho.is (Native HTTPS)</option>
+              <option value="auto">Auto (ip-api direct / server proxy / HTTPS fallback)</option>
+              <option value="ip-api">ip-api.com (Batch HTTP, direct)</option>
+              <option value="ipwhois">ipwho.is (Native HTTPS, no IP-type data)</option>
             </select>
           </div>
         </div>
@@ -1593,25 +1593,23 @@
                 });
               } catch (err) {
                 if (signal.aborted) throw err;
-                console.warn('ip-api.com batch failed, attempting fallback to HTTPS provider:', err);
-                showAlert('Direct HTTP batch restricted. Seamlessly switching to HTTPS fallback engine...', 'warning');
-                // Fallback remaining to ipwho.is
+                console.warn('ip-api.com direct batch failed, attempting server-side proxy:', err);
+                showAlert('Direct HTTP batch restricted. Attempting server-side proxy...', 'warning');
                 const remainingQueries = queries.filter(q => allResults[q.index].status === 'pending');
-                await processWithIpWhois(remainingQueries, signal, (processed) => {
-                  completedCount += processed;
-                  updateProgress(completedCount, total, `Processing via fallback: ${completedCount} of ${total}...`);
-                  renderResults();
-                  updateStats();
-                });
+                await runWithProxyThenFallback(remainingQueries, signal, total, (n) => completedCount += n, () => updateProgress(completedCount, total, `Retrying ${completedCount} of ${total}...`));
               }
-            } else {
-              // HTTPS native mode using ipwho.is
+            } else if (selectedProvider === 'ipwhois') {
+              // User explicitly asked for the plain HTTPS provider (no IP-type data available there)
               await processWithIpWhois(queries, signal, (processed) => {
                 completedCount += processed;
                 updateProgress(completedCount, total, `Lookups active: ${completedCount} of ${total}...`);
                 renderResults();
                 updateStats();
               });
+            } else {
+              // 'auto' mode on HTTPS: use our own serverless proxy (keeps full IP-type data),
+              // falling back to ipwho.is only if the proxy route isn't deployed/reachable.
+              await runWithProxyThenFallback(queries, signal, total, (n) => completedCount += n, () => updateProgress(completedCount, total, `Lookups active: ${completedCount} of ${total}...`));
             }
           }
 
@@ -1633,7 +1631,29 @@
         }
       }
 
-      // --- Provider 1: ip-api.com Batch POST Endpoint ---
+      // Applies one ip-api.com-shaped result record onto a result target — shared between
+      // the direct HTTP call and the server-side proxy, since both return the same shape.
+      function applyIpApiResult(target, resData) {
+        if (resData && resData.status === 'success') {
+          target.country = resData.country || 'Unknown';
+          target.countryCode = resData.countryCode || '';
+          target.city = resData.city || 'Unknown';
+          target.region = resData.regionName || resData.region || '';
+          target.isp = resData.isp || resData.org || 'Unknown';
+          target.org = resData.org || '';
+          target.as = resData.as || '';
+          target.mobile = !!resData.mobile;
+          target.proxy = !!resData.proxy;
+          target.hosting = !!resData.hosting;
+          target.networkType = classifyNetworkType(resData.mobile, resData.proxy, resData.hosting);
+          target.status = 'success';
+        } else {
+          target.status = 'failed';
+          target.errorMsg = (resData && resData.message) || 'Lookup failed';
+        }
+      }
+
+      // --- Provider 1: ip-api.com Batch POST Endpoint (direct, HTTP only) ---
       async function processWithIpApiBatch(queries, signal, onChunkDone) {
         // ip-api.com batch endpoint accepts up to 100 IPs per request
         const CHUNK_SIZE = 100;
@@ -1660,27 +1680,7 @@
           const data = await response.json();
 
           for (let j = 0; j < chunk.length; j++) {
-            const queryItem = chunk[j];
-            const resData = data[j];
-            const target = allResults[queryItem.index];
-
-            if (resData && resData.status === 'success') {
-              target.country = resData.country || 'Unknown';
-              target.countryCode = resData.countryCode || '';
-              target.city = resData.city || 'Unknown';
-              target.region = resData.regionName || resData.region || '';
-              target.isp = resData.isp || resData.org || 'Unknown';
-              target.org = resData.org || '';
-              target.as = resData.as || '';
-              target.mobile = !!resData.mobile;
-              target.proxy = !!resData.proxy;
-              target.hosting = !!resData.hosting;
-              target.networkType = classifyNetworkType(resData.mobile, resData.proxy, resData.hosting);
-              target.status = 'success';
-            } else {
-              target.status = 'failed';
-              target.errorMsg = (resData && resData.message) || 'Lookup failed';
-            }
+            applyIpApiResult(allResults[chunk[j].index], data[j]);
           }
 
           onChunkDone(chunk.length);
@@ -1689,6 +1689,69 @@
           if (i + CHUNK_SIZE < queries.length) {
             await new Promise(r => setTimeout(r, 400));
           }
+        }
+      }
+
+      // --- Provider 1b: Same ip-api.com data, via this site's own /api/lookup serverless
+      // proxy (needed on HTTPS deployments, where the browser can't call ip-api.com's
+      // HTTP-only endpoint directly). Only works when actually deployed on Vercel. ---
+      async function processWithServerProxy(queries, signal, onChunkDone) {
+        const CHUNK_SIZE = 100;
+        for (let i = 0; i < queries.length; i += CHUNK_SIZE) {
+          if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
+          const chunk = queries.slice(i, i + CHUNK_SIZE);
+
+          const response = await fetch('/api/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ips: chunk.map(item => item.ip) }),
+            signal
+          });
+
+          if (!response.ok) {
+            throw new Error(`Server proxy responded with HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          if (!Array.isArray(data)) {
+            throw new Error('Unexpected response from server proxy');
+          }
+
+          for (let j = 0; j < chunk.length; j++) {
+            applyIpApiResult(allResults[chunk[j].index], data[j]);
+          }
+
+          onChunkDone(chunk.length);
+
+          if (i + CHUNK_SIZE < queries.length) {
+            await new Promise(r => setTimeout(r, 400));
+          }
+        }
+      }
+
+      // Tries the server-side proxy (full IP-type data); if it's unreachable — e.g. this
+      // page isn't actually deployed on Vercel, so /api/lookup 404s — falls back to
+      // ipwho.is (no proxy/hosting/mobile data, but still gives geolocation).
+      async function runWithProxyThenFallback(queries, signal, total, addCompleted, renderProgress) {
+        try {
+          await processWithServerProxy(queries, signal, (n) => {
+            addCompleted(n);
+            renderProgress();
+            renderResults();
+            updateStats();
+          });
+        } catch (err) {
+          if (signal.aborted) throw err;
+          console.warn('Server proxy unavailable, falling back to ipwho.is (no IP-type data):', err);
+          showAlert('Server-side proxy unavailable — falling back to a provider without data-center/proxy detection.', 'warning');
+          const remaining = queries.filter(q => allResults[q.index].status === 'pending');
+          await processWithIpWhois(remaining, signal, (n) => {
+            addCompleted(n);
+            renderProgress();
+            renderResults();
+            updateStats();
+          });
         }
       }
 
