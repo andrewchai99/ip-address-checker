@@ -1305,12 +1305,9 @@
             }
             if (parts.length >= 3) {
               const msg = parts.slice(2).join(';').trim();
-              const ipField = parts[1].trim();
               // Skip trailing log-rotation footer lines, e.g. "2026.09.10;(853689 kb);---------------"
               if (/^-+$/.test(msg)) continue;
-              // Skip internal bridge/system source rows — not a client IP worth reporting
-              if (ipField.toLowerCase() === 'primexm bridge') continue;
-              entries.push({ time: parts[0].trim(), ip: ipField, message: msg });
+              entries.push({ time: parts[0].trim(), ip: parts[1].trim(), message: msg });
             } else if (parts.length === 2) {
               entries.push({ time: '', ip: parts[0].trim(), message: parts[1].trim() });
             } else {
